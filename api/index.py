@@ -58,7 +58,7 @@ Invoice:
 
     try:
         response = client.models.generate_content(
-            model="model="gemini-3.1-flash-live-preview"",
+            model="gemini-3.1-flash-live-preview",
             contents=prompt,
         )
 
