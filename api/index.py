@@ -3,7 +3,7 @@ import json
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -15,10 +15,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+client = OpenAI(api_key=os.environ["AIPIPE_TOKEN"], base_url="https://aipipe.org/openai/v1")
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
-FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gemini-flash-latest", "gemini-flash-lite-latest"]))
+DEFAULT_MODEL = os.getenv("AIPIPE_MODEL", "gpt-4.1-mini")
+FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gpt-4.1-mini", "gpt-4o-mini"]))
 
 
 class InvoiceRequest(BaseModel):
@@ -61,12 +61,13 @@ Invoice:
 
     for model_name in FALLBACK_MODELS:
         try:
-            response = client.models.generate_content(
+            response = client.chat.completions.create(
                 model=model_name,
-                contents=prompt,
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"},
             )
 
-            text = response.text.strip()
+            text = response.choices[0].message.content.strip()
 
             if text.startswith("```"):
                 text = text.split("\n", 1)[1]
