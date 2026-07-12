@@ -59,7 +59,6 @@ Invoice:
 {req.invoice_text}
 """
 
-    last_error = None
     for model_name in FALLBACK_MODELS:
         try:
             response = client.models.generate_content(
@@ -74,12 +73,12 @@ Invoice:
                 text = text.rsplit("```", 1)[0]
 
             result = json.loads(text)
-            for key in ("invoice_no", "date", "vendor", "amount", "tax", "currency"):
-                result.setdefault(key, None)
-            return result
+            return {
+                key: result.get(key)
+                for key in ("invoice_no", "date", "vendor", "amount", "tax", "currency")
+            }
 
         except Exception as e:
-            last_error = e
             if "not found" in str(e).lower() or "unsupported" in str(e).lower():
                 continue
             break
@@ -91,5 +90,4 @@ Invoice:
         "amount": None,
         "tax": None,
         "currency": None,
-        "error": str(last_error)
     }
