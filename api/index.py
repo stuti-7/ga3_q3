@@ -17,6 +17,9 @@ app.add_middleware(
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+FALLBACK_MODELS = list(dict.fromkeys([DEFAULT_MODEL, "gemini-flash-latest", "gemini-flash-lite-latest"]))
+
 
 class InvoiceRequest(BaseModel):
     invoice_text: str
@@ -56,27 +59,37 @@ Invoice:
 {req.invoice_text}
 """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-3.1-flash-live-preview",
-            contents=prompt,
-        )
+    last_error = None
+    for model_name in FALLBACK_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
 
-        text = response.text.strip()
+            text = response.text.strip()
 
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1]
-            text = text.rsplit("```", 1)[0]
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+                text = text.rsplit("```", 1)[0]
 
-        return json.loads(text)
+            result = json.loads(text)
+            for key in ("invoice_no", "date", "vendor", "amount", "tax", "currency"):
+                result.setdefault(key, None)
+            return result
 
-    except Exception as e:
-        return {
-            "invoice_no": None,
-            "date": None,
-            "vendor": None,
-            "amount": None,
-            "tax": None,
-            "currency": None,
-            "error": str(e)
-        }
+        except Exception as e:
+            last_error = e
+            if "not found" in str(e).lower() or "unsupported" in str(e).lower():
+                continue
+            break
+
+    return {
+        "invoice_no": None,
+        "date": None,
+        "vendor": None,
+        "amount": None,
+        "tax": None,
+        "currency": None,
+        "error": str(last_error)
+    }
